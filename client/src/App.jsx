@@ -3,35 +3,64 @@ import axios from "axios";
 
 function App() {
   const [files, setFiles] = useState([]);
+  const [progress, setProgress] = useState({});
+  const [status, setStatus] = useState({});
 
   const handleFileChange = (e) => {
-    setFiles(e.target.files);
+    setFiles(Array.from(e.target.files));
   };
 
   const handleUpload = async () => {
-    const formData = new FormData();
+    for (let file of files) {
+      const formData = new FormData();
+      formData.append("files", file);
 
-    for (let i = 0; i < files.length; i++) {
-      formData.append("files", files[i]);
-    }
+      setStatus((prev) => ({
+        ...prev,
+        [file.name]: "Uploading",
+      }));
 
-    try {
-      const res = await axios.post(
-        "http://localhost:5000/api/upload",
-        formData
-      );
+      try {
+        await axios.post(
+          "http://localhost:5000/api/upload",
+          formData,
+          {
+            onUploadProgress: (progressEvent) => {
+              const percent = Math.round(
+                (progressEvent.loaded * 100) /
+                progressEvent.total
+              );
 
-      alert("Files uploaded successfully");
+              setProgress((prev) => ({
+                ...prev,
+                [file.name]: percent,
+              }));
+            },
+          }
+        );
 
-      console.log(res.data);
-    } catch (error) {
-      console.log(error);
-      alert("Upload failed");
+        setStatus((prev) => ({
+          ...prev,
+          [file.name]: "Completed",
+        }));
+      } catch (error) {
+        console.log(error);
+
+        setStatus((prev) => ({
+          ...prev,
+          [file.name]: "Failed",
+        }));
+      }
     }
   };
 
   return (
-    <div style={{ padding: "40px" }}>
+    <div
+      style={{
+        padding: "40px",
+        fontFamily: "sans-serif",
+      }}
+    >
       <h1>Document Dashboard</h1>
 
       <input
@@ -47,6 +76,58 @@ function App() {
       <button onClick={handleUpload}>
         Upload Files
       </button>
+
+      <div style={{ marginTop: "30px" }}>
+        {files.map((file) => (
+          <div
+            key={file.name}
+            style={{
+              border: "1px solid #ccc",
+              padding: "15px",
+              marginBottom: "20px",
+              borderRadius: "10px",
+            }}
+          >
+            <p>
+              <strong>Name:</strong> {file.name}
+            </p>
+
+            <p>
+              <strong>Size:</strong>{" "}
+              {(file.size / 1024).toFixed(2)} KB
+            </p>
+
+            <p>
+              <strong>Type:</strong> {file.type}
+            </p>
+
+            <p>
+              <strong>Status:</strong>{" "}
+              {status[file.name] || "Pending"}
+            </p>
+
+            <div
+              style={{
+                width: "100%",
+                background: "#ddd",
+                height: "20px",
+                borderRadius: "10px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${progress[file.name] || 0}%`,
+                  background: "blue",
+                  height: "100%",
+                }}
+              />
+            </div>
+
+            <p>{progress[file.name] || 0}%</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
